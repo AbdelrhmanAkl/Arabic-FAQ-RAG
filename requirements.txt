@@ -1,8 +1,9 @@
+streamlit
 sentence-transformers
 faiss-cpu
 scikit-learn
 pandas
 numpy
 joblib
-streamlit
 pyarrow
+huggingface_hub

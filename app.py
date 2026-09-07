@@ -1,4 +1,5 @@
 import streamlit as st
+
 from pathlib import Path
 
 from src.intent import ArabicFAQIntentClassifier
@@ -12,6 +13,10 @@ from src.reranking import IntentAwareReranker
 
 BASE_DIR = Path(__file__).resolve().parent
 
+# Hugging Face repository containing large artifacts
+HF_REPO_ID = "AbdelrahmanAkl/Arabic-FAQ-RAG"
+
+# Local artifact paths
 FAISS_PATH = BASE_DIR / "data" / "train_chunks.faiss"
 METADATA_PATH = BASE_DIR / "data" / "train_chunks_metadata_v2.parquet"
 INTENT_MODEL_PATH = BASE_DIR / "models" / "intent_classifier.joblib"
@@ -43,8 +48,6 @@ st.markdown(
     """
     <style>
 
-    /* ---------- Global ---------- */
-
     .stApp {
         background:
             radial-gradient(
@@ -66,8 +69,6 @@ st.markdown(
         padding-bottom: 3rem;
     }
 
-    /* ---------- Hide Streamlit chrome ---------- */
-
     #MainMenu {
         visibility: hidden;
     }
@@ -80,14 +81,10 @@ st.markdown(
         visibility: hidden;
     }
 
-    /* ---------- RTL ---------- */
-
     .rtl {
         direction: rtl;
         text-align: right;
     }
-
-    /* ---------- Hero ---------- */
 
     .hero {
         padding: 2.2rem 2rem;
@@ -131,8 +128,6 @@ st.markdown(
         max-width: 850px;
     }
 
-    /* ---------- Section titles ---------- */
-
     .section-title {
         color: #0f172a;
         font-size: 1.15rem;
@@ -140,8 +135,6 @@ st.markdown(
         margin-top: 1.4rem;
         margin-bottom: 0.7rem;
     }
-
-    /* ---------- Search ---------- */
 
     .search-label {
         direction: rtl;
@@ -170,8 +163,6 @@ st.markdown(
             0 0 0 3px rgba(99, 102, 241, 0.12) !important;
     }
 
-    /* ---------- Search button ---------- */
-
     div.stButton > button {
         width: 100%;
         min-height: 50px;
@@ -195,7 +186,6 @@ st.markdown(
     }
 
     /* ---------- Metric cards ---------- */
-
     .metric-card {
         background: white;
         border: 1px solid #e2e8f0;
@@ -226,8 +216,6 @@ st.markdown(
         font-weight: 800;
     }
 
-    /* ---------- Answer ---------- */
-
     .answer-card {
         background: white;
         border: 1px solid #e2e8f0;
@@ -254,8 +242,6 @@ st.markdown(
         font-weight: 500;
     }
 
-    /* ---------- FAQ information ---------- */
-
     .info-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
@@ -277,8 +263,6 @@ st.markdown(
         font-weight: 700;
         line-height: 1.5;
     }
-
-    /* ---------- Sources ---------- */
 
     .source-card {
         background: white;
@@ -308,8 +292,6 @@ st.markdown(
         font-size: 0.78rem;
         margin-top: 0.45rem;
     }
-
-    /* ---------- Sidebar ---------- */
 
     section[data-testid="stSidebar"] {
         background: #0f172a;
@@ -343,8 +325,6 @@ st.markdown(
         margin: 0.45rem 0;
     }
 
-    /* ---------- Footer ---------- */
-
     .custom-footer {
         text-align: center;
         color: #94a3b8;
@@ -361,19 +341,56 @@ st.markdown(
 
 
 # ============================================================
+# ARTIFACT RESOLUTION
+# ============================================================
+
+def resolve_artifact(filename: str, local_path: Path) -> str:
+    """
+    Use the local artifact when available.
+    Otherwise download it from Hugging Face Hub.
+    """
+
+    if local_path.exists():
+        return str(local_path)
+
+    from huggingface_hub import hf_hub_download
+
+    return hf_hub_download(
+        repo_id=HF_REPO_ID,
+        filename=filename,
+        repo_type="model",
+    )
+
+
+# ============================================================
 # LOAD SYSTEM
 # ============================================================
 
 @st.cache_resource(show_spinner=False)
 def load_system():
 
+    resolved_intent_model = resolve_artifact(
+        "models/intent_classifier.joblib",
+        INTENT_MODEL_PATH,
+    )
+
+    resolved_faiss = resolve_artifact(
+        "data/train_chunks.faiss",
+        FAISS_PATH,
+    )
+
+    resolved_metadata = resolve_artifact(
+        "data/train_chunks_metadata_v2.parquet",
+        METADATA_PATH,
+    )
+
     intent_classifier = ArabicFAQIntentClassifier(
-        model_path=INTENT_MODEL_PATH
+        model_path=resolved_intent_model
     )
 
     retriever = ArabicFAQRetriever(
-        faiss_path=str(FAISS_PATH),
-        metadata_path=str(METADATA_PATH),
+        faiss_path=resolved_faiss,
+        metadata_path=resolved_metadata,
         model_name=EMBEDDING_MODEL,
         device="cpu",
     )
@@ -441,7 +458,6 @@ with st.sidebar:
             <b>Retrieval Top-K</b><br>
             {RETRIEVAL_TOP_K}
         </div>
-
         <div class="sidebar-text" style="margin-top:1rem;">
             <b>Final Results</b><br>
             {FINAL_TOP_K}
@@ -572,6 +588,7 @@ if search_clicked:
 
         best = reranked[0]
 
+
         # ====================================================
         # ANALYSIS
         # ====================================================
@@ -631,6 +648,7 @@ if search_clicked:
                 unsafe_allow_html=True,
             )
 
+
         # ====================================================
         # ANSWER
         # ====================================================
@@ -653,6 +671,7 @@ if search_clicked:
             """,
             unsafe_allow_html=True,
         )
+
 
         # ====================================================
         # FAQ INFORMATION
@@ -713,6 +732,7 @@ if search_clicked:
                 unsafe_allow_html=True,
             )
 
+
         col4, col5, col6 = st.columns(3)
 
         with col4:
@@ -769,6 +789,7 @@ if search_clicked:
                 unsafe_allow_html=True,
             )
 
+
         # ====================================================
         # SOURCES
         # ====================================================
@@ -804,7 +825,6 @@ if search_clicked:
                             &nbsp; | &nbsp;
                             Final Score: {item["final_score"]:.4f}
                         </div>
-
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -822,7 +842,10 @@ if search_clicked:
                     """,
                     unsafe_allow_html=True,
                 )
+
+
     except Exception as e:
+
         st.error(
             f"حدث خطأ أثناء تنفيذ البحث: {e}"
         )
