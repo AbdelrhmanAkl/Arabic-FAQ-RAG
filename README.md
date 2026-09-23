@@ -462,7 +462,7 @@ Potential future improvements include:
 
 # 👨‍💻 Author
 
-**Abdelrahman Ahmed Akl**
+**Eng.Abdelrahman Ahmed Akl**
 
 AI / ML Engineer focused on:
 
